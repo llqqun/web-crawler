@@ -144,7 +144,7 @@ async function crawlImages(websiteUrl, selector = 'img') {
       await downloadImage(image.url, fileName);
 
       // 添加到压缩包
-      const filePath = path.join('./images', fileName);
+      const filePath = path.join(`./${config.imgCache}`, fileName);
       if (fs.existsSync(filePath)) {
         const fileContent = fs.readFileSync(filePath);
         zip.addFile(fileName, fileContent);
