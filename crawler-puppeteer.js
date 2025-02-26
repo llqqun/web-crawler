@@ -15,7 +15,7 @@ const config = {
   imgCache: 'cache',
   clearCache: true,
   loadType: 'networkidle2', // domcontentloaded load networkidle0 networkidle2
-  targetWebSite: 'https://www.wnacg.com/photos-slide-aid-284087.html',
+  targetWebSite: 'https://www.wnacg.com/photos-slide-aid-282956.html',
 };
 
 async function downloadImage(imageUrl, fileName) {
