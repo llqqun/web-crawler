@@ -15,5 +15,8 @@
     "axios": "^1.7.9",
     "cheerio": "^1.0.0",
     "puppeteer": "^24.3.0"
+  },
+  "devDependencies": {
+    "eslint": "^9.21.0"
   }
 }
