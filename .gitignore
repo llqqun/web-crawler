@@ -1,6 +1,7 @@
 # 依赖目录
 node_modules/
 dist/
+cache/
 
 # 下载的图片和压缩包
 *.zip

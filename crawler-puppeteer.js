@@ -7,13 +7,15 @@ const AdmZip = require('adm-zip');
 const config = {
   filterPathIndex: 5,
   imgEleBox: '#img_list img',
-  autoScrollHeight: 500,
+  autoScrollHeight: 300,
   autoScrollDelay: 100,
   maxScrollTime: 600000,
   domTime: 600000,
   fileSave: 'dist',
-  loadType: 'domcontentloaded', // domcontentloaded load networkidle0 networkidle2
-  targetWebSite: 'https://www.wnacg.com/photos-slide-aid-285256.html',
+  imgCache: 'cache',
+  clearCache: true,
+  loadType: 'networkidle2', // domcontentloaded load networkidle0 networkidle2
+  targetWebSite: 'https://www.wnacg.com/photos-slide-aid-284087.html',
 };
 
 async function downloadImage(imageUrl, fileName) {
@@ -22,7 +24,7 @@ async function downloadImage(imageUrl, fileName) {
       url: imageUrl,
       responseType: 'arraybuffer',
     });
-    const rootPath = `./${config.fileSave}`;
+    const rootPath = `./${config.imgCache}`;
     if (!fs.existsSync(rootPath)) {
       fs.mkdirSync(rootPath);
     }
@@ -156,16 +158,16 @@ async function crawlImages(websiteUrl, selector = 'img') {
     console.log(`已生成压缩包: ${zipName}`);
 
     // 清理临时文件夹
-    if (fs.existsSync('./images')) {
-      fs.readdirSync('./images').forEach((file) => {
-        fs.unlinkSync(path.join('./images', file));
+    if (config.clearCache && fs.existsSync(`./${config.imgCache}`)) {
+      fs.readdirSync(`./${config.imgCache}`).forEach((file) => {
+        fs.unlinkSync(path.join(`./${config.imgCache}`, file));
       });
-      fs.rmdirSync('./images');
+      fs.rmdirSync(`./${config.imgCache}`);
     }
   } catch (error) {
     console.error(`爬取失败: ${error.message}`);
   } finally {
-    // await browser.close();
+    await browser.close();
   }
 }
 
@@ -217,31 +219,31 @@ async function autoScroll(page, config) {
   }
 }
 
-// crawlImages(config.targetWebSite, config.imgEleBox);
+crawlImages(config.targetWebSite, config.imgEleBox);
 
 // 长图补救
 // 浏览器控制台执行
-const imgElements = document.querySelectorAll(selector);
-const results = [];
-Array.from(imgElements).forEach((img, index) => {
-  const url = img.src || img.dataset.src || img.dataset.original || img.dataset.lazySrc;
-  results.push({ url, index });
-});
-results = results.filter((item) => item.url);
-results.forEach((item) => {
-  item.index = 502 + item.index;
-});
-// node执行
-async function demo() {
-  for (let { url, index } of results) {
-    if (!url) continue;
+// const imgElements = document.querySelectorAll(selector);
+// const results = [];
+// Array.from(imgElements).forEach((img, index) => {
+//   const url = img.src || img.dataset.src || img.dataset.original || img.dataset.lazySrc;
+//   results.push({ url, index });
+// });
+// results = results.filter((item) => item.url);
+// results.forEach((item) => {
+//   item.index = 502 + item.index;
+// });
+// // node执行
+// async function demo() {
+//   for (let { url, index } of results) {
+//     if (!url) continue;
 
-    let fileName = path.basename(url);
-    if (!fileName || !fileName.match(/\.(jpg|jpeg|png|gif)$/i)) {
-      fileName = `lq_${index}.jpg`;
-    }
+//     let fileName = path.basename(url);
+//     if (!fileName || !fileName.match(/\.(jpg|jpeg|png|gif)$/i)) {
+//       fileName = `lq_${index}.jpg`;
+//     }
 
-    await downloadImage(url, fileName);
-  }
-}
-demo();
+//     await downloadImage(url, fileName);
+//   }
+// }
+// demo();
