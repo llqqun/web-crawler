@@ -10,7 +10,7 @@ const config = {
   autoScrollHeight: 400,
   autoScrollDelay: 80,
   maxScrollTime: 99999999,
-  targetWebSite: ''
+  targetWebSite: 'https://www.wnacg.com/photos-slide-aid-285256.html'
 };
 
 async function downloadImage(imageUrl, fileName) {
