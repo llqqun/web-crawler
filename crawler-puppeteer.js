@@ -285,7 +285,7 @@ async function verifyImgOver(page, config) {
   }
 }
 
-crawlImages(config.targetWebSite, config.imgEleBox);
+// crawlImages(config.targetWebSite, config.imgEleBox);
 
 // 长图补救
 // 浏览器控制台执行
@@ -313,3 +313,32 @@ crawlImages(config.targetWebSite, config.imgEleBox);
 //   }
 // }
 // demo();
+
+module.exports = {
+  crawlImages,
+  config,
+   // 更新配置的方法
+   updateConfig: (newConfig) => {
+    Object.assign(config, newConfig);
+  },
+  // 重置配置到默认值
+  resetConfig: () => {
+    config.filterPathIndex = 5;
+    config.imgEleBox = '#img_list img';
+    config.autoScrollHeight = 300;
+    config.autoScrollDelay = 100;
+    config.maxScrollTime = 600000;
+    config.domTime = 600000;
+    config.clearCache = true;
+    config.imgTotal = 0;
+    config.loadType = 'networkidle2';
+  },
+  // 获取当前配置
+  getConfig: () => ({...config}),
+  // 验证配置是否有效
+  validateConfig: () => {
+    return config.imgEleBox && 
+           typeof config.autoScrollHeight === 'number' && 
+           typeof config.autoScrollDelay === 'number';
+  }
+};

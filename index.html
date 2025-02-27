@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>图片爬虫控制台</title>
+  <style>
+    body { padding: 20px; font-family: Arial, sans-serif; }
+    .config-panel, .task-panel { margin-bottom: 20px; }
+    .task-list { max-height: 300px; overflow-y: auto; }
+    .task-item { margin: 5px 0; padding: 10px; border: 1px solid #ddd; }
+    .success { background-color: #dff0d8; }
+    .failed { background-color: #f2dede; }
+  </style>
+</head>
+<body>
+  <div class="config-panel">
+    <h3>配置参数</h3>
+    <div>
+      <label>图片选择器：</label>
+      <input type="text" id="imgSelector" value="#img_list img">
+    </div>
+    <div>
+      <label>自动滚动高度：</label>
+      <input type="number" id="scrollHeight" value="300">
+    </div>
+    <div>
+      <label>滚动延迟(ms)：</label>
+      <input type="number" id="scrollDelay" value="100">
+    </div>
+  </div>
+
+  <div class="task-panel">
+    <h3>任务管理</h3>
+    <div>
+      <input type="text" id="taskUrl" placeholder="输入目标网址">
+      <button onclick="addTask()">添加任务</button>
+    </div>
+    <div class="task-list" id="taskList"></div>
+    <button onclick="startTasks()">开始执行</button>
+  </div>
+
+  <script>
+    const { ipcRenderer } = require('electron');
+    let tasks = [];
+
+    function addTask() {
+      const url = document.getElementById('taskUrl').value;
+      if (url) {
+        tasks.push({
+          url,
+          selector: document.getElementById('imgSelector').value,
+          status: 'pending'
+        });
+        updateTaskList();
+        document.getElementById('taskUrl').value = '';
+      }
+    }
+
+    function updateTaskList() {
+      const list = document.getElementById('taskList');
+      list.innerHTML = tasks.map((task, index) => `
+        <div class="task-item ${task.status}">
+          <span>${task.url}</span>
+          <span>${task.status}</span>
+          ${task.status === 'pending' ? 
+            `<button onclick="removeTask(${index})">删除</button>` : ''}
+        </div>
+      `).join('');
+    }
+
+    function removeTask(index) {
+      tasks.splice(index, 1);
+      updateTaskList();
+    }
+
+    function startTasks() {
+      const pendingTasks = tasks.filter(t => t.status === 'pending');
+      if (pendingTasks.length > 0) {
+        ipcRenderer.send('start-crawler', pendingTasks);
+      }
+    }
+
+    ipcRenderer.on('task-complete', (event, result) => {
+      const task = tasks.find(t => t.url === result.url);
+      if (task) {
+        task.status = result.status;
+        updateTaskList();
+      }
+    });
+  </script>
+</body>
+</html>

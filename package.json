@@ -2,8 +2,10 @@
   "name": "crawler",
   "version": "1.0.0",
   "description": "",
-  "main": "index.js",
+  "main": "main.js",
   "scripts": {
+    "start": "electron .",
+    "build": "electron-builder",
     "dev": "node crawler-puppeteer.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
