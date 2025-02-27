@@ -14,8 +14,9 @@ const config = {
   fileSave: 'dist',
   imgCache: 'cache',
   clearCache: true,
+  imgTotal: 0,
   loadType: 'networkidle2', // domcontentloaded load networkidle0 networkidle2
-  targetWebSite: 'https://www.wnacg.com/photos-slide-aid-282956.html',
+  targetWebSite: 'https://www.wnacg.com/photos-slide-aid-279135.html',
 };
 
 async function downloadImage(imageUrl, fileName) {
@@ -31,9 +32,11 @@ async function downloadImage(imageUrl, fileName) {
 
     const filePath = path.join(rootPath, fileName);
     fs.writeFileSync(filePath, response.data);
-    console.log(`已下载: ${fileName}`);
+    // console.log(`已下载: ${fileName}`);
+    return { success: true, fileName, data: response.data };
   } catch (error) {
     console.error(`下载失败 ${imageUrl}: ${error.message}`);
+    return { success: false, fileName, error };
   }
 }
 
@@ -100,6 +103,34 @@ async function crawlImages(websiteUrl, selector = 'img') {
     await page.waitForSelector(selector, { visible: true, timeout: 8000 });
     console.log('找到目标元素');
 
+    // 获取总页数
+    config.imgTotal = await page.evaluate(() => {
+      const ele = document.querySelector('#img_list > div span');
+      if (ele) {
+        const pages = ele.textContent.split('/')[1];
+        return pages ? parseInt(pages) : 0;
+      }
+      return 0;
+    });
+    console.log('总页数:', config.imgTotal);
+
+    // 检查图片是否全部加载完成，如果没有则滚动加载
+    let isComplete = await verifyImgOver(page, config);
+    if (!isComplete) {
+      console.log('图片未完全加载，开始滚动加载...');
+      await autoScroll(page, config);
+    } else {
+      console.log('图片已全部加载，无需滚动');
+    }
+    // 检查是否需要滚动加载
+    // const scrollable = await page.evaluate((selector, config) => {
+    //   const imgList = document.querySelectorAll(selector);
+    //   if (imgList.length <= config.imgTotal) {
+    //     return true
+    //   }
+    //   return false;
+    // }, selector,config);
+
     await autoScroll(page, config);
 
     // 修改图片选择器，支持特定class下的图片
@@ -128,34 +159,54 @@ async function crawlImages(websiteUrl, selector = 'img') {
       selector,
       config
     );
-    console.log('下载列表', images);
+    // console.log('下载列表', images);
     console.log('下载数量', images.length);
 
     const zip = new AdmZip();
+    // 并行下载图片
+    const downloadPromises = images.map((image, index) => {
+      if (!image.url) return Promise.resolve(null);
+
+      let fileName = `${index}.jpg`;
+      // let fileName = path.basename(image.url);
+      // if (!fileName || !fileName.match(/\.(jpg|jpeg|png|gif)$/i)) {
+      //   fileName = `lq_${index}.jpg`;
+      // }
+
+      return downloadImage(image.url, fileName);
+    });
+    const results = await Promise.all(downloadPromises);
+    // 处理下载结果
+    results.forEach(result => {
+      if (result && result.success) {
+        zip.addFile(result.fileName, result.data);
+        // console.log(`已添加到压缩包: ${result.fileName}`);
+      }
+    });
     // 下载图片
-    for (let [index, image] of images.entries()) {
-      if (!image.url) continue;
+    // for (let [index, image] of images.entries()) {
+    //   if (!image.url) continue;
 
-      let fileName = path.basename(image.url);
-      if (!fileName || !fileName.match(/\.(jpg|jpeg|png|gif)$/i)) {
-        fileName = `lq_${index}.jpg`;
-      }
+    //   let fileName = path.basename(image.url);
+    //   if (!fileName || !fileName.match(/\.(jpg|jpeg|png|gif)$/i)) {
+    //     fileName = `lq_${index}.jpg`;
+    //   }
 
-      await downloadImage(image.url, fileName);
+    //   await downloadImage(image.url, fileName);
 
-      // 添加到压缩包
-      const filePath = path.join(`./${config.imgCache}`, fileName);
-      if (fs.existsSync(filePath)) {
-        const fileContent = fs.readFileSync(filePath);
-        zip.addFile(fileName, fileContent);
-        console.log(`已添加到压缩包: ${fileName}`);
-      }
-    }
+    //   // 添加到压缩包
+    //   const filePath = path.join(`./${config.imgCache}`, fileName);
+    //   if (fs.existsSync(filePath)) {
+    //     const fileContent = fs.readFileSync(filePath);
+    //     zip.addFile(fileName, fileContent);
+    //     console.log(`已添加到压缩包: ${fileName}`);
+    //   }
+    // }
 
     // 生成压缩包
     const zipName = `${pageTitle}_${Date.now()}.zip`;
     zip.writeZip(zipName);
-    console.log(`已生成压缩包: ${zipName}`);
+    // console.log(`已生成压缩包: ${zipName}`);
 
     // 清理临时文件夹
     if (config.clearCache && fs.existsSync(`./${config.imgCache}`)) {
@@ -179,43 +230,58 @@ async function autoScroll(page, config) {
         let totalHeight = 0;
         const distance = config.autoScrollHeight;
         const startTime = Date.now();
+        let timeoutId = null
         const timer = setInterval(() => {
+          timeoutId = null
           const scrollHeight = document.documentElement.scrollHeight;
           window.scrollBy(0, distance);
           totalHeight += distance;
 
           const images = document.querySelectorAll(config.imgEleBox);
-          let allLoaded = true;
-          let loadedCount = 0;
-          images.forEach((img) => {
-            if (img.complete) {
-              loadedCount++;
-            } else {
-              allLoaded = false;
-            }
-          });
-          if (Date.now() - startTime > config.maxScrollTime) {
-            console.log('滚动超时，继续执行');
+          if (images.length >= config.imgTotal) {
+            console.log('已加载完所有图片，停止滚动');
             clearInterval(timer);
             resolve();
             return;
           }
-          if (totalHeight >= scrollHeight && allLoaded) {
-            // 额外等待一段时间确保所有图片都加载完成
-            setTimeout(() => {
+
+          if (Date.now() - startTime > config.maxScrollTime) {
+            console.log('滚动超时，继续执行');
+            timeoutId = setTimeout(() => {
               clearInterval(timer);
               resolve();
-            }, 2000);
+            }, 3000);
+            return;
           }
+
           if (totalHeight >= scrollHeight) {
-            clearInterval(timer);
-            resolve();
+            // 额外等待一段时间确保所有图片都加载完成
+            timeoutId = setTimeout(() => {
+              clearInterval(timer);
+              resolve();
+            }, 3000);
           }
         }, config.autoScrollDelay);
       });
     }, config);
   } catch (error) {
     console.log('自动滚动出错，继续执行：', error.message);
+  }
+}
+// 检查页面图片是否都加载完成
+async function verifyImgOver(page, config) {
+  try {
+    await page.evaluate(async (config) => {
+      await new Promise(async (resolve) => {
+        const imgList = document.querySelectorAll(config.imgEleBox);
+        if (imgList.length >= config.imgTotal) {
+          return resolve(true);
+        }
+        return resolve(false);
+      });
+    },config);
+  } catch (error) {
+    
   }
 }
 
